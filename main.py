@@ -17,13 +17,14 @@ from langchain.chains.combine_documents.stuff import create_stuff_documents_chai
 app = Flask(__name__)
 CORS(app)
 
-# Lazy initialization for Cloud Run fast startup
+# Global variables for lazy initialization
+pc = None
 retriever = None
 llm = None
 
-@app.before_first_request
 def initialize_services():
-    global retriever, llm
+    """Initialize Pinecone, embeddings, retriever, and LLM."""
+    global pc, retriever, llm
     try:
         pinecone_api_key = os.environ["PINECONE_API_KEY"]
         pinecone_index_name = os.environ["PINECONE_INDEX_NAME"]
@@ -46,7 +47,12 @@ def initialize_services():
         traceback.print_exc()
         print("Failed to initialize services:", e)
 
-# Health check endpoint
+@app.before_first_request
+def lazy_initialize():
+    if not all([pc, retriever, llm]):
+        initialize_services()
+
+# Health check endpoint for Cloud Run
 @app.route("/health")
 def health():
     if not retriever or not llm:
