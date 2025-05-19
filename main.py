@@ -1,34 +1,42 @@
-# main.py (YouTube Comment API)
+# main.py (Production YouTube Comment API)
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
-from dotenv import load_dotenv
-from langchain_pinecone import PineconeVectorStore
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_core.prompts import PromptTemplate
-from langchain.chains.combine_documents.stuff import create_stuff_documents_chain
 from pinecone import Pinecone
 
-# Load environment variables
-load_dotenv()
+# Environment configuration
+if os.environ.get("ENV") != "production":
+    from dotenv import load_dotenv
+    load_dotenv()
+
+# LangChain imports (production-safe)
+try:
+    from langchain_pinecone import PineconeVectorStore
+    from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+    from langchain_core.prompts import PromptTemplate
+    from langchain.chains.combine_documents.stuff import create_stuff_documents_chain
+except ImportError as e:
+    raise RuntimeError("Missing dependencies! Check requirements.txt") from e
 
 # Initialize services
 app = Flask(__name__)
 CORS(app)
-pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 
-def initialize_services():
-    index = pc.Index(os.getenv("PINECONE_INDEX_NAME"))
-    embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
-    return PineconeVectorStore(index, embeddings)
+# Pinecone initialization
+pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
+index = pc.Index(os.environ["PINECONE_INDEX_NAME"])
 
-vector_store = initialize_services()
-retriever = vector_store.as_retriever(search_kwargs={"k": 3})  # Optimized for comment context
+# OpenAI setup
+embeddings = OpenAIEmbeddings(openai_api_key=os.environ["OPENAI_API_KEY"])
+vector_store = PineconeVectorStore(index, embeddings)
+retriever = vector_store.as_retriever(search_kwargs={"k": 3})
 
+# LLM configuration
 llm = ChatOpenAI(
     model="gpt-3.5-turbo-0125",
     temperature=0.6,
-    max_tokens=150
+    max_tokens=150,
+    openai_api_key=os.environ["OPENAI_API_KEY"]
 )
 
 PROMPT_TEMPLATE = """
@@ -73,4 +81,5 @@ def handle_comment():
     return jsonify(response=response)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+    app.run(host=os.environ.get("HOST", "0.0.0.0"), 
+            port=int(os.environ.get("PORT", 8080)))
