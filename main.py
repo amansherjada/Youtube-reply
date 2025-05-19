@@ -1,5 +1,3 @@
-# main.py
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
@@ -16,35 +14,44 @@ from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from langchain.chains.combine_documents.stuff import create_stuff_documents_chain
 
-# Flask app setup
 app = Flask(__name__)
 CORS(app)
 
-# Health check endpoint for Cloud Run
+# Lazy initialization for Cloud Run fast startup
+retriever = None
+llm = None
+
+@app.before_first_request
+def initialize_services():
+    global retriever, llm
+    try:
+        pinecone_api_key = os.environ["PINECONE_API_KEY"]
+        pinecone_index_name = os.environ["PINECONE_INDEX_NAME"]
+        openai_api_key = os.environ["OPENAI_API_KEY"]
+
+        pc = Pinecone(api_key=pinecone_api_key)
+        index = pc.Index(pinecone_index_name)
+        embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
+        vector_store = PineconeVectorStore(index, embeddings)
+        retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+        llm = ChatOpenAI(
+            model="gpt-3.5-turbo-0125",
+            temperature=0.6,
+            max_tokens=150,
+            openai_api_key=openai_api_key
+        )
+        print("Services initialized successfully.")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print("Failed to initialize services:", e)
+
+# Health check endpoint
 @app.route("/health")
 def health():
+    if not retriever or not llm:
+        return "Initializing", 503
     return "OK", 200
-
-# Initialize Pinecone and LangChain services
-def get_services():
-    pinecone_api_key = os.environ["PINECONE_API_KEY"]
-    pinecone_index_name = os.environ["PINECONE_INDEX_NAME"]
-    openai_api_key = os.environ["OPENAI_API_KEY"]
-
-    pc = Pinecone(api_key=pinecone_api_key)
-    index = pc.Index(pinecone_index_name)
-    embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
-    vector_store = PineconeVectorStore(index, embeddings)
-    retriever = vector_store.as_retriever(search_kwargs={"k": 3})
-    llm = ChatOpenAI(
-        model="gpt-3.5-turbo-0125",
-        temperature=0.6,
-        max_tokens=150,
-        openai_api_key=openai_api_key
-    )
-    return retriever, llm
-
-retriever, llm = get_services()
 
 PROMPT_TEMPLATE = """
 You are American Hairline's YouTube comment responder. Follow these rules:
