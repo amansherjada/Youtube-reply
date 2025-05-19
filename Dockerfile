@@ -17,10 +17,13 @@ RUN pip install --upgrade pip && \
 
 COPY . .
 
+# Add HOST ENV variable
+ENV HOST=0.0.0.0
+
+# Modify CMD to explicitly bind to 0.0.0.0
 CMD exec gunicorn \
-    --bind :$PORT \
+    --bind 0.0.0.0:$PORT \
     --workers 2 \
-    --threads 4 \
     --timeout 120 \
-    --preload \
     main:app
+
