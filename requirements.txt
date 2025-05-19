@@ -1,10 +1,13 @@
-fastapi==0.115.12
-gunicorn==23.0.0
-uvicorn==0.34.2
-pinecone==3.1.0            # Pinecone client SDK 3.x (with Pinecone object init):contentReference[oaicite:4]{index=4}
+fastapi==0.115.1
+gunicorn==21.2.0
+uvicorn==0.29.0
+
+openai==1.68.2
+pinecone==3.0.0
+
 langchain==0.3.25
 langchain-openai==0.3.17
 langchain-pinecone==0.2.6
-openai==1.10.0
-python-dotenv==1.1.0
+
+python-dotenv==1.0.1
 tiktoken==0.7.0
