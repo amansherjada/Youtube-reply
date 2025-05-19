@@ -1,20 +1,17 @@
 FROM python:3.11-slim
 
-# Environment configuration
-ENV PYTHONUNBUFFERED=1 \
-    PORT=8080 \
-    GUNICORN_CMD_ARGS="--timeout 120 --keep-alive 65"
+ENV PORT=8080 \
+    GUNICORN_CMD_ARGS="--timeout 120 --preload --worker-class gthread --threads 4"
 
-# System dependencies
+WORKDIR /app
+
 RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Application setup
-WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
 
-# Production server
 CMD ["gunicorn", "--bind", "0.0.0.0:${PORT}", "--workers", "1", "main:app"]
