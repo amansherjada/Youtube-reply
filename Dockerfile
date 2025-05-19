@@ -1,18 +1,33 @@
-# Use the official lightweight Python image.
+# Production-optimized Dockerfile
 FROM python:3.11-slim
 
-# Allow statements and log messages to immediately appear in the logs
-ENV PYTHONUNBUFFERED True
+# Configure environment
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PORT=8080 \
+    APP_HOME=/app
 
-# Set working directory
-ENV APP_HOME /app
 WORKDIR $APP_HOME
 
-# Copy local code to the container image.
-COPY . ./
+# Install system dependencies first (required for some Python packages)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install production dependencies.
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Install Python dependencies (layer caching optimization)
+COPY requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Run the web service on container startup. Use gunicorn for production.
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 main:app
+# Copy application code
+COPY . .
+
+# Production server configuration
+CMD exec gunicorn \
+    --bind :$PORT \
+    --workers 2 \
+    --threads 4 \
+    --timeout 120 \
+    --preload \
+    main:app
