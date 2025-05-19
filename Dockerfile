@@ -1,17 +1,21 @@
+# Use Python 3.11 slim base image
 FROM python:3.11-slim
 
-ENV PORT=8080 \
-    GUNICORN_CMD_ARGS="--timeout 120 --preload --worker-class gthread --threads 4"
+# Install system dependencies for building Python packages
+RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*
 
+# Set working directory
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
+# Copy requirements and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Copy the FastAPI application code
+COPY app.py .
 
-CMD ["gunicorn", "--bind", "0.0.0.0:${PORT}", "--workers", "1", "main:app"]
+# Expose port 8080 for Cloud Run
+EXPOSE 8080
+
+# Start the FastAPI app with Gunicorn and Uvicorn workers
+CMD ["sh", "-c", "gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:${PORT:-8080} app:app"]
