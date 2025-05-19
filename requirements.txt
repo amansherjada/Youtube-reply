@@ -1,9 +1,10 @@
-Flask==3.0.2
-flask-cors==4.0.0
-python-dotenv==1.0.1
-gunicorn==21.2.0
-openai==1.12.0
-pinecone==6.0.0  # Unified Pinecone SDK (no plugins needed)
-langchain==0.2.1
-langchain-openai==0.1.6
-langchain-pinecone==0.2.5  # Compatible with Pinecone v6
+fastapi==0.115.12
+gunicorn==23.0.0
+uvicorn==0.34.2
+pinecone==3.1.0            # Pinecone client SDK 3.x (with Pinecone object init):contentReference[oaicite:4]{index=4}
+langchain==0.3.25
+langchain-openai==0.3.17
+langchain-pinecone==0.2.6
+openai==1.10.0
+python-dotenv==1.1.0
+tiktoken==0.7.0
