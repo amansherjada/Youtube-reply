@@ -6,7 +6,7 @@ from langchain_community.vectorstores import Pinecone as PineconeVectorStore
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from langchain.chains.question_answering import load_qa_chain
-import pinecone
+from pinecone import Pinecone, ServerlessSpec
 
 # Load environment variables
 load_dotenv()
@@ -21,8 +21,8 @@ app = Flask(__name__)
 CORS(app)
 
 # Initialize Pinecone
-pinecone.init(api_key=PINECONE_API_KEY, environment=PINECONE_ENVIRONMENT)
-index = pinecone.Index(PINECONE_INDEX_NAME)
+pc = Pinecone(api_key=PINECONE_API_KEY)
+index = pc.Index(PINECONE_INDEX_NAME)
 
 # OpenAI Embeddings
 embedding_model = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
