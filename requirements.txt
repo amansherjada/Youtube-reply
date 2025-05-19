@@ -3,7 +3,7 @@ flask-cors==4.0.0
 python-dotenv==1.0.1
 
 openai==1.63.0
-pinecone==3.0.0
+pinecone-client==3.0.0
 
 langchain==0.2.1
 langchain-openai==0.1.6
