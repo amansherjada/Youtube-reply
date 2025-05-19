@@ -1,8 +1,8 @@
-flask
-flask-cors
-python-dotenv
-openai
-pinecone
+fastapi
+uvicorn
+gunicorn
+openai>=1.59.4
+pinecone>=6.0.0
 langchain
 langchain-openai
 langchain-community
