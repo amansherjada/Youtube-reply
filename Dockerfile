@@ -18,4 +18,4 @@ COPY app.py .
 EXPOSE 8080
 
 # Start the FastAPI app with Gunicorn and Uvicorn workers
-CMD ["sh", "-c", "gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:${PORT:-8080} app:app"]
+CMD ["gunicorn", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8080", "app:app"]
