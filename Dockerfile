@@ -3,6 +3,7 @@ FROM python:3.11-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PORT=8080 \
+    HOST=0.0.0.0 \
     APP_HOME=/app
 
 WORKDIR $APP_HOME
@@ -17,13 +18,8 @@ RUN pip install --upgrade pip && \
 
 COPY . .
 
-# Add HOST ENV variable
-ENV HOST=0.0.0.0
-
-# Modify CMD to explicitly bind to 0.0.0.0
 CMD exec gunicorn \
-    --bind 0.0.0.0:$PORT \
+    --bind $HOST:$PORT \
     --workers 2 \
     --timeout 120 \
     main:app
-
