@@ -1,45 +1,46 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import os
-from dotenv import load_dotenv
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from langchain_community.vectorstores import Pinecone as PineconeVectorStore
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from langchain.chains.question_answering import load_qa_chain
-from pinecone import Pinecone, ServerlessSpec
+from pinecone import Pinecone
+import os
 
 # Load environment variables
-load_dotenv()
-
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_ENVIRONMENT = os.getenv("PINECONE_ENVIRONMENT")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
 
-# Initialize Flask app
-app = Flask(__name__)
-CORS(app)
+# Validations
+if not OPENAI_API_KEY:
+    raise RuntimeError("❌ OPENAI_API_KEY not found in environment.")
+if not PINECONE_API_KEY:
+    raise RuntimeError("❌ PINECONE_API_KEY not found in environment.")
+if not PINECONE_INDEX_NAME:
+    raise RuntimeError("❌ PINECONE_INDEX_NAME not found in environment.")
 
-# Initialize Pinecone
+# Initialize clients
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX_NAME)
-
-# OpenAI Embeddings
 embedding_model = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
-
-# Vector Store & Retriever
 vector_store = PineconeVectorStore(index=index, embedding=embedding_model)
 retriever = vector_store.as_retriever(search_kwargs={"k": 5})
+llm = ChatOpenAI(model="gpt-3.5-turbo", openai_api_key=OPENAI_API_KEY, temperature=0.7, max_tokens=100)
 
-# LLM
-llm = ChatOpenAI(
-    model="gpt-3.5-turbo",
-    openai_api_key=OPENAI_API_KEY,
-    temperature=0.7,
-    max_tokens=100
+# FastAPI app
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Generate a YouTube-friendly reply
+# Core function
 def generate_youtube_reply(query):
     try:
         documents = retriever.get_relevant_documents(query)
@@ -86,22 +87,18 @@ Reply:
         return result["output_text"].strip()
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error generating response: {e}")
         return "Thanks for your comment! 😊 Our team will get back to you soon."
 
-# Endpoint for YouTube comment webhook
-@app.route("/youtube-reply", methods=["POST"])
-def youtube_comment_reply():
-    data = request.get_json()
-    query = data.get("query")
-
-    if not query:
-        return jsonify({"response": "Please provide a comment."})
-
-    reply = generate_youtube_reply(query)
-    return jsonify({"response": reply})
-
-# Cloud Run compatibility
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(debug=True, host="0.0.0.0", port=port)
+# Endpoint
+@app.post("/youtube-reply")
+async def youtube_comment_reply(request: Request):
+    try:
+        data = await request.json()
+        query = data.get("query")
+        if not query:
+            return JSONResponse(content={"response": "Please provide a comment."}, status_code=400)
+        reply = generate_youtube_reply(query)
+        return JSONResponse(content={"response": reply})
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
