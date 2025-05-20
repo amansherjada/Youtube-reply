@@ -87,7 +87,7 @@ def generate_reply(request: CommentRequest):
     return {"reply": str(result).strip()}
 
 # Run the app with Uvicorn for local testing (honoring PORT if set)
-if __name__ == "__main__":
+if __name__ == "__app__":
     import uvicorn
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
