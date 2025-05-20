@@ -66,6 +66,9 @@ system_template = """
           🚫 No sharing personal client info.
           🚫 No exact pricing details.
 
+        After giving your reply, always end with:"If you'd like to speak with someone directly, you can WhatsApp our team at +91 9222666111 or just fill out the form in the video description — we’ll reach out to you immediately!"
+
+        
         Retrieved context:
         {context}
 
