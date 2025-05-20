@@ -70,8 +70,6 @@ system_template = """
         {context}
 
         User's current comment: {comment}
-
-        Answer: Please let me know if you have any other basic questions before connecting with our team!
         """
 
 human_template = """Context:
