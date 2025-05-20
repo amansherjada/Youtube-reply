@@ -3,90 +3,114 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
 
-# Load environment variables from .env (for local development)
+# Load environment variables
 load_dotenv()
 
-# Required environment variables: PINECONE_API_KEY, PINECONE_ENV (optional), PINECONE_INDEX, OPENAI_API_KEY
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_ENV = os.getenv("PINECONE_ENV") or os.getenv("PINECONE_ENVIRONMENT")
-INDEX_NAME = os.getenv("PINECONE_INDEX")
-
-if not PINECONE_API_KEY or not INDEX_NAME:
-    raise RuntimeError("PINECONE_API_KEY and PINECONE_INDEX must be set as environment variables.")
-
-# Initialize Pinecone client using Pinecone object (no deprecated pinecone.init)
+# Initialize Pinecone
 import pinecone
-if PINECONE_ENV:
-    pc = pinecone.Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
-else:
-    pc = pinecone.Pinecone(api_key=PINECONE_API_KEY)
-try:
-    index = pc.Index(INDEX_NAME)
-except Exception as e:
-    raise RuntimeError(f"Failed to connect to Pinecone index '{INDEX_NAME}': {e}")
+pc = pinecone.Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+index = pc.Index(os.getenv("PINECONE_INDEX"))
 
-# Initialize LangChain components (OpenAI LLM and Pinecone vector store)
+# LangChain components
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain.chains.combine_documents.stuff import create_stuff_documents_chain
 
-# Embedding model for vector search (uses OpenAI Embeddings)
-embedding_model = OpenAIEmbeddings()  # uses OPENAI_API_KEY from environment
-# Create vector store from existing Pinecone index and embedding model
-vector_store = PineconeVectorStore(index=index, embedding=embedding_model)  # :contentReference[oaicite:2]{index=2}
-
-# Language model for reply generation (OpenAI GPT-3.5 Turbo)
+# Initialize models
+embedding_model = OpenAIEmbeddings()
+vector_store = PineconeVectorStore(index=index, embedding=embedding_model)
 llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.7)
 
-# Define prompt templates for system and user messages
-system_template = (
-    "You are a helpful assistant that generates casual and friendly replies to YouTube comments. "
-    "Keep responses short and conversational. "
-    "Do not provide any medical advice. Do not mention prices or costs. "
-    "Do not mention any celebrity names."
-)
-human_template = (
-    "Relevant context (if any):\n{context}\n\n"
-    "User comment: \"{comment}\"\n\n"
-    "Write a short, casual reply to this comment."
-)
+# WhatsApp-specific prompt template
+system_template = """
+        American Hairline WhatsApp Customer Support AI Assistant
+        # You are a helpful WhatsApp assistant for AHL. Use the following retrieved context to answer the user's question. Be concise and professional.
+
+        ## Core Objective
+        Provide clear, friendly, and professional customer support for non-surgical hair replacement while guiding customers to connect with the team for a call.
+
+        Keep your responses short and conversational, as if you were chatting with a customer on WhatsApp.
+
+        ## General Chat Guidelines
+          - Keep it simple and natural – no robotic language.
+          - Use short and clear messages – don't overwhelm the customer.
+          - Make the conversation feel human – warm and friendly, not like a bot.
+
+        ## Handling Common Questions
+
+        ### Price Inquiries
+          ❌ Never share exact prices
+          ✅ How to respond:
+          - "Pricing depends on your specific needs. The best way to get details is by speaking with our team. You can WhatsApp or call them at +91 9222666111."
+
+        ### Location Inquiries
+          ✅ How to respond (Keep it short & friendly)
+          - Mumbai: "We're at Saffron Building, 202, Linking Rd, opposite Satgurus Store, above Anushree Reddy Store, Khar, Khar West, Mumbai, Maharashtra 400052. Want to visit? You can WhatsApp us at +91 9222666111. Link = https://g.co/kgs/TJesmqE"
+          - Delhi: "We're in Greater Kailash-1, New Delhi, but we see clients by appointment only. Please WhatsApp us to book a slot!"
+          - Bangalore: "Our Indiranagar location in Bangalore operates by appointment only. Message us on WhatsApp to check availability and book!"
+          - Other cities: "We currently have stores in Mumbai, Delhi, and Bangalore. But we'd love to help—WhatsApp our team at +91 9222666111!"
+
+        ### Product Questions
+          ✅ How to respond:
+          - "We offer non-surgical hair replacement using real hair, customized to look completely natural. Let me know if you'd like more details!"
+
+        ### Encouraging a Call
+          - The goal is to suggest a call naturally, without misleading.
+          - Example:
+          - "I can share some general information here, but to discuss your specific needs and find the best solution, speaking with our team directly would be ideal. You can call or WhatsApp them at +91 9222666111."
+
+        ## Things NOT to Do
+          🚫 No medical advice.
+          🚫 No competitor comparisons.
+          🚫 No sharing personal client info.
+          🚫 No exact pricing details.
+
+        Retrieved context:
+        {context}
+
+        User's current comment: {comment}
+
+        Answer: Please let me know if you have any other basic questions before connecting with our team!
+        """
+
+human_template = """Context:
+{context}
+
+User comment: "{comment}"
+
+WhatsApp-style reply:"""
+
 chat_prompt = ChatPromptTemplate.from_messages([
     SystemMessagePromptTemplate.from_template(system_template),
     HumanMessagePromptTemplate.from_template(human_template)
 ])
 
-# Create a chain that combines context documents and the LLM (using the 'stuff' method)
-qa_chain = create_stuff_documents_chain(llm=llm, prompt=chat_prompt)  # :contentReference[oaicite:3]{index=3}
+# Create QA chain
+qa_chain = create_stuff_documents_chain(llm=llm, prompt=chat_prompt)
 
-# Pydantic models for request and response bodies
+# FastAPI setup
+app = FastAPI()
+
 class CommentRequest(BaseModel):
-    query: str
+    comment: str
 
 class ReplyResponse(BaseModel):
     reply: str
 
-# Instantiate FastAPI app
-app = FastAPI()
-
 @app.post("/youtube-reply", response_model=ReplyResponse)
 def generate_reply(request: CommentRequest):
-    """
-    Generate a short, casual reply to the given YouTube comment.
-    """
-    user_query = request.query
+    """Generate WhatsApp-optimized customer support responses"""
     try:
-        # Retrieve relevant documents from Pinecone via similarity search
-        docs = vector_store.similarity_search(user_query, k=5)
-        # Run the chain with retrieved docs and user comment to generate a reply
-        result = qa_chain.invoke({"context": docs, "comment": user_query})
+        docs = vector_store.similarity_search(request.comment, k=5)
+        result = qa_chain.invoke({
+            "context": docs,
+            "comment": request.comment
+        })
     except Exception as e:
-        # Return HTTP 500 on any error (e.g., Pinecone or OpenAI issues)
         raise HTTPException(status_code=500, detail=str(e))
-    # Return the reply text
     return {"reply": str(result).strip()}
 
-# Run the app with Uvicorn for local testing (honoring PORT if set)
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8080))
