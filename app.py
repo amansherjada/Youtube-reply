@@ -105,7 +105,7 @@ def generate_reply(request: CommentRequest):
     try:
         docs = vector_store.similarity_search(request.comment, k=5)
         result = qa_chain.invoke({
-            "context": "\n\n".join(docs),
+             "context": docs,
             "comment": request.comment
         })
     except Exception as e:
